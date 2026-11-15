@@ -13,3 +13,4 @@ terraform/
 k8s/
 *.md
 .gitignore
+.local_orders/

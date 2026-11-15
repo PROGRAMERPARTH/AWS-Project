@@ -1,5 +1,14 @@
 import sys, os
 
+# Set dummy AWS credentials before importing app/boto3
+os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
+os.environ["AWS_REGION"] = "us-east-1"
+os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+os.environ["AWS_SECURITY_TOKEN"] = "testing"
+os.environ["AWS_SESSION_TOKEN"] = "testing"
+os.environ["S3_BUCKET_NAME"] = "test-bucket"
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest

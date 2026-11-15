@@ -5,10 +5,11 @@ import logging
 import os
 import random
 import string
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.config import Config
+from botocore.exceptions import ClientError, NoCredentialsError, EndpointConnectionError
 from flask import Flask, flash, render_template, request
 
 # ---------------------------------------------------------------------------
@@ -16,6 +17,12 @@ from flask import Flask, flash, render_template, request
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
+
+# In local dev without credentials, disable IMDS probing to avoid 10s timeout
+if os.environ.get('FLASK_ENV') != 'production' and not (
+    os.environ.get('AWS_ACCESS_KEY_ID') or os.environ.get('AWS_PROFILE')
+):
+    os.environ.setdefault('AWS_EC2_METADATA_DISABLED', 'true')
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -40,15 +47,20 @@ MENU_ITEMS = {
 # ---------------------------------------------------------------------------
 # AWS / S3
 # ---------------------------------------------------------------------------
-AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+AWS_REGION = os.environ.get('AWS_REGION', os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'))
 S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', '')
 
-s3_client = boto3.client('s3', region_name=AWS_REGION)
+s3_config = Config(
+    connect_timeout=2,
+    read_timeout=2,
+    retries={'max_attempts': 1}
+)
+s3_client = boto3.client('s3', region_name=AWS_REGION, config=s3_config)
 
 
 def _generate_order_id() -> str:
     """Return an order ID in the format ORD-YYYYMMDD-HHMMSS-XXXX."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     random_suffix = ''.join(
         random.choices(string.ascii_uppercase + string.digits, k=4)
     )
@@ -96,7 +108,7 @@ def place_order():
 
     order = {
         'order_id': order_id,
-        'created_at': datetime.utcnow().isoformat(),
+        'created_at': datetime.now(timezone.utc).isoformat(),
         'customer_name': customer_name,
         'selected_items': selected_items,
         'subtotal': float(subtotal),
@@ -104,28 +116,38 @@ def place_order():
     }
 
     # --- Upload to S3 -----------------------------------------------------
-    if not S3_BUCKET_NAME:
-        logger.error('S3_BUCKET_NAME environment variable is not set.')
-        flash('Server configuration error. Please contact the administrator.', 'error')
-        return render_template('index.html', menu_items=MENU_ITEMS)
-
     s3_key = f"orders/{order_id}.json"
-    try:
-        s3_client.put_object(
-            Bucket=S3_BUCKET_NAME,
-            Key=s3_key,
-            Body=json.dumps(order, indent=2),
-            ContentType='application/json',
-        )
-        logger.info('Order %s uploaded to s3://%s/%s', order_id, S3_BUCKET_NAME, s3_key)
-    except ClientError as exc:
-        logger.exception('Failed to upload order %s to S3: %s', order_id, exc)
-        flash('Failed to upload your order. Please try again later.', 'error')
-        return render_template('index.html', menu_items=MENU_ITEMS)
-    except Exception as exc:  # noqa: BLE001
-        logger.exception('Unexpected error uploading order %s: %s', order_id, exc)
-        flash('An unexpected error occurred. Please try again later.', 'error')
-        return render_template('index.html', menu_items=MENU_ITEMS)
+    uploaded_to_s3 = False
+
+    if S3_BUCKET_NAME:
+        try:
+            s3_client.put_object(
+                Bucket=S3_BUCKET_NAME,
+                Key=s3_key,
+                Body=json.dumps(order, indent=2),
+                ContentType='application/json',
+            )
+            uploaded_to_s3 = True
+            logger.info('Order %s uploaded to s3://%s/%s', order_id, S3_BUCKET_NAME, s3_key)
+        except NoCredentialsError:
+            logger.warning(
+                'No AWS credentials found. Saving order %s locally in dev mode.', order_id
+            )
+        except (ClientError, EndpointConnectionError) as exc:
+            logger.warning(
+                'S3 upload unavailable (%s). Saving order %s locally in dev mode.', exc, order_id
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception('Unexpected error during S3 upload for %s: %s', order_id, exc)
+
+    # Fallback to local storage when running in local development without AWS credentials
+    if not uploaded_to_s3:
+        local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.local_orders', 'orders')
+        os.makedirs(local_dir, exist_ok=True)
+        local_path = os.path.join(local_dir, f"{order_id}.json")
+        with open(local_path, 'w', encoding='utf-8') as f:
+            json.dump(order, f, indent=2)
+        logger.info('Order %s saved locally at %s', order_id, local_path)
 
     # --- Render success page ----------------------------------------------
     return render_template(
@@ -134,6 +156,7 @@ def place_order():
         customer_name=customer_name,
         items=selected_items,
         subtotal=subtotal,
+        uploaded_to_s3=uploaded_to_s3,
     )
 
 

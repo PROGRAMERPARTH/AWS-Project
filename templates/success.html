@@ -207,7 +207,11 @@
         </div>
 
         <p class="cloud-msg">
-            <span>☁️</span> Your order has been placed and uploaded to the cloud!
+            {% if uploaded_to_s3 %}
+            <span>☁️</span> <strong>Uploaded to AWS S3!</strong> Your order has been placed and sent to the cloud.
+            {% else %}
+            <span>💾</span> <strong>Saved in Local Dev Mode!</strong> Order saved locally (no AWS credentials configured). In production, EC2 IAM roles upload directly to S3.
+            {% endif %}
         </p>
     </div>
 
