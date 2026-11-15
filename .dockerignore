@@ -1,0 +1,15 @@
+.git
+.github
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+tests/
+lambda/
+terraform/
+k8s/
+*.md
+.gitignore

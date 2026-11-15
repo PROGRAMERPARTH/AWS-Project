@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cafe-order-processor
+  labels:
+    app: cafe-order-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cafe-order-processor
+  template:
+    metadata:
+      labels:
+        app: cafe-order-processor
+    spec:
+      containers:
+      - name: cafe-app
+        image: YOUR_DOCKERHUB_USERNAME/cloud-cafe-order-processor:latest
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - configMapRef:
+            name: cafe-app-config
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 10

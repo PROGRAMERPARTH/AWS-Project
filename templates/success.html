@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed &mdash; Cloud Caf&eacute;</title>
+    <style>
+        /* ---- Reset & Base ---- */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fdf6ec;
+            color: #3e2723;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ---- Header ---- */
+        header {
+            width: 100%;
+            background-color: #4e342e;
+            color: #fff8e1;
+            text-align: center;
+            padding: 1.8rem 1rem;
+        }
+
+        header h1 {
+            font-size: 2rem;
+        }
+
+        /* ---- Main ---- */
+        main {
+            width: 100%;
+            max-width: 600px;
+            padding: 2rem 1rem;
+        }
+
+        /* ---- Success banner ---- */
+        .success-banner {
+            background-color: #2e7d32;
+            color: #fff;
+            text-align: center;
+            padding: 1.2rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .success-banner .checkmark {
+            font-size: 1.6rem;
+            margin-right: .4rem;
+        }
+
+        /* ---- Order details card ---- */
+        .order-card {
+            background-color: #fff8e1;
+            border: 1px solid #d7ccc8;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(62, 39, 35, .1);
+        }
+
+        .order-card h2 {
+            font-size: 1.3rem;
+            color: #4e342e;
+            margin-bottom: 1rem;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: .5rem 0;
+            border-bottom: 1px solid #efebe9;
+            font-size: 1rem;
+        }
+
+        .detail-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #5d4037;
+        }
+
+        /* ---- Items list ---- */
+        .items-list {
+            list-style: none;
+            margin: .8rem 0 1rem;
+        }
+
+        .items-list li {
+            display: flex;
+            justify-content: space-between;
+            background-color: #efebe9;
+            padding: .55rem .8rem;
+            border-radius: 6px;
+            margin-bottom: .4rem;
+        }
+
+        .items-list li .price {
+            font-weight: 600;
+            color: #5d4037;
+        }
+
+        /* ---- Subtotal ---- */
+        .subtotal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: .75rem 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+            border-top: 2px solid #d7ccc8;
+            margin-top: .5rem;
+        }
+
+        /* ---- Cloud message ---- */
+        .cloud-msg {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            color: #6d4c41;
+        }
+
+        .cloud-msg span {
+            font-size: 1.3rem;
+        }
+
+        /* ---- Back link ---- */
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.8rem;
+            padding: .75rem;
+            background-color: #6d4c41;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.05rem;
+            border-radius: 8px;
+            transition: background-color .2s;
+        }
+
+        .back-link:hover {
+            background-color: #4e342e;
+        }
+
+        /* ---- Footer ---- */
+        footer {
+            margin-top: auto;
+            padding: 1.2rem;
+            text-align: center;
+            font-size: .85rem;
+            color: #8d6e63;
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 480px) {
+            header h1 { font-size: 1.5rem; }
+            .order-card { padding: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>&#9749; Cloud Caf&eacute; Order Processor</h1>
+</header>
+
+<main>
+    <!-- Success banner -->
+    <div class="success-banner">
+        <span class="checkmark">&#10004;</span> Order Confirmed!
+    </div>
+
+    <!-- Order details -->
+    <div class="order-card">
+        <h2>Order Details</h2>
+
+        <div class="detail-row">
+            <span class="detail-label">Order ID</span>
+            <span>{{ order_id }}</span>
+        </div>
+
+        <div class="detail-row">
+            <span class="detail-label">Customer</span>
+            <span>{{ customer_name }}</span>
+        </div>
+
+        <p class="detail-label" style="margin-top: 1rem;">Items Ordered</p>
+        <ul class="items-list">
+            {% for item in items %}
+            <li>
+                <span>{{ item.name }}</span>
+                <span class="price">${{ '%.2f' % item.price }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="subtotal-row">
+            <span>Subtotal</span>
+            <span>${{ '%.2f' % subtotal }}</span>
+        </div>
+
+        <p class="cloud-msg">
+            <span>☁️</span> Your order has been placed and uploaded to the cloud!
+        </p>
+    </div>
+
+    <a class="back-link" href="/">Place Another Order</a>
+</main>
+
+<footer>
+    &copy; 2026 Cloud Caf&eacute; &mdash; Powered by AWS ☁️
+</footer>
+
+</body>
+</html>
