@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError, NoCredentialsError, EndpointConnectionError
-from flask import Flask, flash, render_template, request
+from flask import Flask, flash, jsonify, render_template, request
 
 # ---------------------------------------------------------------------------
 # App configuration
@@ -74,6 +74,49 @@ def _generate_order_id() -> str:
 def index():
     """Render the order form."""
     return render_template('index.html', menu_items=MENU_ITEMS)
+
+
+@app.route('/stats', methods=['GET'])
+def stats():
+    """Return JSON statistics for all saved orders."""
+    order_count = 0
+    total_amount = 0.0
+
+    # 1. Read orders from S3 if configured
+    if S3_BUCKET_NAME:
+        try:
+            paginator = s3_client.get_paginator('list_objects_v2')
+            for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix='orders/'):
+                for obj in page.get('Contents', []):
+                    key = obj['Key']
+                    if key.endswith('.json'):
+                        resp = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=key)
+                        data = json.loads(resp['Body'].read().decode('utf-8'))
+                        order_count += 1
+                        total_amount += float(data.get('subtotal', 0.0))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning('Could not read stats from S3 (%s), checking local folder.', exc)
+
+    # 2. Fallback / local orders check if S3 returned nothing
+    if order_count == 0:
+        local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.local_orders', 'orders')
+        if os.path.exists(local_dir):
+            for filename in os.listdir(local_dir):
+                if filename.endswith('.json'):
+                    filepath = os.path.join(local_dir, filename)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            order_count += 1
+                            total_amount += float(data.get('subtotal', 0.0))
+                    except Exception:  # noqa: BLE001
+                        pass
+
+    return jsonify({
+        'order_count': order_count,
+        'total_amount': round(total_amount, 2),
+        'version': 'v2',
+    })
 
 
 @app.route('/order', methods=['POST'])

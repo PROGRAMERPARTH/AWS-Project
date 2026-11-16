@@ -108,3 +108,13 @@ def test_order_id_format():
     order_id = f"ORD-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}-{random_suffix}"
 
     assert re.match(pattern, order_id), f"Order ID '{order_id}' does not match expected format"
+
+
+def test_stats_endpoint(client):
+    """GET /stats returns JSON with order_count, total_amount, and version v2."""
+    response = client.get("/stats")
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert "order_count" in data
+    assert "total_amount" in data
+    assert data["version"] == "v2"
