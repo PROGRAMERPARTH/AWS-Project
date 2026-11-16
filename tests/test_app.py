@@ -46,10 +46,12 @@ def client():
 
 
 def test_home_page(client):
-    """GET / returns 200 and contains 'Caf' in the response."""
+    """GET / returns 200 and contains 'Caf' and 'View stats' link."""
     response = client.get("/")
     assert response.status_code == 200
     assert b"Caf" in response.data
+    assert b'href="/stats"' in response.data
+    assert b"View stats" in response.data
 
 
 def test_place_order_success(client):
