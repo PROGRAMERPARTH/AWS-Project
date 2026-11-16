@@ -4,6 +4,6 @@ metadata:
   name: cafe-app-config
   namespace: default
 data:
-  AWS_REGION: "us-east-1"
-  S3_BUCKET_NAME: "cloud-cafe-orders-YOUR-UNIQUE-SUFFIX"
+  AWS_REGION: "ap-southeast-2"
+  S3_BUCKET_NAME: "cloud-cafe-orders-parthnerkar-9472"
   FLASK_ENV: "production"

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: cafe-app
-        image: YOUR_DOCKERHUB_USERNAME/cloud-cafe-order-processor:latest
+        image: parthnerkar/cloud-cafe-order-processor1:v1
         ports:
         - containerPort: 5000
         envFrom:
