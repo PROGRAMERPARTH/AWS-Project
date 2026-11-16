@@ -78,12 +78,34 @@ def index():
 
 @app.route('/stats', methods=['GET'])
 def stats():
-    """Return JSON statistics for all saved orders."""
+    """Return JSON statistics for all saved orders/invoices."""
     order_count = 0
     total_amount = 0.0
+    seen_files = set()
 
-    # 1. Read orders from S3 if configured
-    if S3_BUCKET_NAME:
+    # 1. Read from invoice / local directories
+    candidate_dirs = [
+        os.path.expanduser('~/invoice'),
+        '/home/ec2-user/invoice',
+        '/invoice',
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.local_orders', 'orders'),
+    ]
+    for local_dir in candidate_dirs:
+        if os.path.exists(local_dir):
+            for filename in os.listdir(local_dir):
+                if filename.endswith('.json') and filename not in seen_files:
+                    filepath = os.path.join(local_dir, filename)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            order_count += 1
+                            total_amount += float(data.get('subtotal', 0.0))
+                            seen_files.add(filename)
+                    except Exception:  # noqa: BLE001
+                        pass
+
+    # 2. Also read from S3 if configured and no local files found
+    if order_count == 0 and S3_BUCKET_NAME:
         try:
             paginator = s3_client.get_paginator('list_objects_v2')
             for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix='orders/'):
@@ -95,24 +117,10 @@ def stats():
                         order_count += 1
                         total_amount += float(data.get('subtotal', 0.0))
         except Exception as exc:  # noqa: BLE001
-            logger.warning('Could not read stats from S3 (%s), checking local folder.', exc)
-
-    # 2. Fallback / local orders check if S3 returned nothing
-    if order_count == 0:
-        local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.local_orders', 'orders')
-        if os.path.exists(local_dir):
-            for filename in os.listdir(local_dir):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(local_dir, filename)
-                    try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            order_count += 1
-                            total_amount += float(data.get('subtotal', 0.0))
-                    except Exception:  # noqa: BLE001
-                        pass
+            logger.warning('Could not read stats from S3 (%s)', exc)
 
     return jsonify({
+        'invoice_count': order_count,
         'order_count': order_count,
         'total_amount': round(total_amount, 2),
         'version': 'v2',
@@ -129,20 +137,32 @@ def place_order():
         flash('Please enter your name.', 'error')
         return render_template('index.html', menu_items=MENU_ITEMS)
 
-    # --- Validate selected items ------------------------------------------
-    selected_item_names = request.form.getlist('items')
-    if not selected_item_names:
-        flash('Please select at least one item.', 'error')
-        return render_template('index.html', menu_items=MENU_ITEMS)
-
-    # Build the list of selected items with prices
+    # --- Validate selected items or custom invoice items ------------------
     selected_items = []
+
+    # Check menu items
+    selected_item_names = request.form.getlist('items')
     for name in selected_item_names:
         if name in MENU_ITEMS:
             selected_items.append({'name': name, 'price': MENU_ITEMS[name]})
 
+    # Check optional custom quantity and unit price (e.g. quantity 2, unit price 450)
+    custom_qty_str = (request.form.get('custom_quantity') or '').strip()
+    custom_price_str = (request.form.get('custom_price') or '').strip()
+    if custom_qty_str and custom_price_str:
+        try:
+            c_qty = int(custom_qty_str)
+            c_price = float(custom_price_str)
+            if c_qty > 0 and c_price >= 0:
+                selected_items.append({
+                    'name': f'Invoice Item (Qty {c_qty} @ ${c_price:.2f})',
+                    'price': round(c_qty * c_price, 2)
+                })
+        except ValueError:
+            pass
+
     if not selected_items:
-        flash('Invalid items selected. Please try again.', 'error')
+        flash('Please select at least one item or enter quantity and price.', 'error')
         return render_template('index.html', menu_items=MENU_ITEMS)
 
     # --- Build the order --------------------------------------------------
@@ -157,6 +177,22 @@ def place_order():
         'subtotal': float(subtotal),
         'status': 'NEW',
     }
+
+    # --- Always save to invoice directory for host persistence (ls ~/invoice)
+    for inv_dir in [
+        os.path.expanduser('~/invoice'),
+        '/home/ec2-user/invoice',
+        '/invoice',
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.local_orders', 'orders'),
+    ]:
+        try:
+            os.makedirs(inv_dir, exist_ok=True)
+            with open(os.path.join(inv_dir, f"{order_id}.json"), 'w', encoding='utf-8') as f:
+                json.dump(order, f, indent=2)
+            logger.info('Order %s saved to invoice dir: %s', order_id, inv_dir)
+            break
+        except Exception:
+            pass
 
     # --- Upload to S3 -----------------------------------------------------
     s3_key = f"orders/{order_id}.json"

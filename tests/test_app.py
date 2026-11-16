@@ -112,11 +112,29 @@ def test_order_id_format():
     assert re.match(pattern, order_id), f"Order ID '{order_id}' does not match expected format"
 
 
+def test_custom_invoice_item(client):
+    """POST /order with custom quantity 2 and unit price 450 gives 900.00 subtotal."""
+    with mock_aws():
+        s3 = boto3.client("s3", region_name="us-east-1")
+        s3.create_bucket(Bucket="test-bucket")
+
+        response = client.post(
+            "/order",
+            data=dict(
+                customer_name="Examiner",
+                custom_quantity="2",
+                custom_price="450",
+            ),
+        )
+        assert response.status_code == 200
+        assert b"900.00" in response.data
+
+
 def test_stats_endpoint(client):
-    """GET /stats returns JSON with order_count, total_amount, and version v2."""
+    """GET /stats returns JSON with invoice_count, total_amount, and version v2."""
     response = client.get("/stats")
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert "order_count" in data
+    assert "invoice_count" in data
     assert "total_amount" in data
     assert data["version"] == "v2"

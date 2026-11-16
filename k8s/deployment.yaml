@@ -16,12 +16,15 @@ spec:
     spec:
       containers:
       - name: cafe-app
-        image: parthnerkar/cloud-cafe-order-processor1:v1
+        image: parthnerkar/cloud-cafe-order-processor1:v2
         ports:
         - containerPort: 5000
         envFrom:
         - configMapRef:
             name: cafe-app-config
+        volumeMounts:
+        - name: invoice-volume
+          mountPath: /home/ec2-user/invoice
         resources:
           requests:
             cpu: "100m"
@@ -41,3 +44,8 @@ spec:
             port: 5000
           initialDelaySeconds: 15
           periodSeconds: 10
+      volumes:
+      - name: invoice-volume
+        hostPath:
+          path: /home/ec2-user/invoice
+          type: DirectoryOrCreate

@@ -213,6 +213,21 @@
                 {% endfor %}
             </div>
 
+            <!-- Custom / Examiner Invoice input (Quantity & Unit Price) -->
+            <div style="background-color: #efebe9; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <p style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; color: #4e342e;">Custom Invoice Item (Optional)</p>
+                <div style="display: flex; gap: 0.8rem;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.2rem;" for="custom_quantity">Quantity</label>
+                        <input type="number" id="custom_quantity" name="custom_quantity" placeholder="e.g. 2" min="1" style="width: 100%; padding: 0.5rem; border: 1px solid #bcaaa4; border-radius: 6px; margin-bottom: 0;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.2rem;" for="custom_price">Unit Price ($)</label>
+                        <input type="number" step="0.01" id="custom_price" name="custom_price" placeholder="e.g. 450" min="0" style="width: 100%; padding: 0.5rem; border: 1px solid #bcaaa4; border-radius: 6px; margin-bottom: 0;">
+                    </div>
+                </div>
+            </div>
+
             <button type="submit" class="btn-submit">Place Order</button>
         </form>
     </div>
